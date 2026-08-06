@@ -1,0 +1,33 @@
+# NR% by reporting Group (update monthly or when rates change).
+# Keys must match Group names from customer_group_mapping (after mapping).
+nr_percent_by_group:
+  Online Sale: 83
+  Offline Sale: 89
+  Marketplace Sale: 95
+  Marketplace Sale (FBA,FBF, Jio): 95
+  Alpha Sale: 95
+  TE Sale: 95
+  Marico MT (Primary): 95
+  HOM Sale: 30
+
+# GC% by reporting Group (manual input similar to NR%).
+gc_percent_by_group:
+  Online Sale: null
+  Offline Sale: null
+  Marketplace Sale: null
+  Marketplace Sale (FBA,FBF, Jio): null
+  Alpha Sale: null
+  TE Sale: null
+  Marico MT (Primary): null
+  HOM Sale: null
+
+# SD% by reporting Group (manual input similar to NR% / GC%).
+sd_percent_by_group:
+  Online Sale: null
+  Offline Sale: null
+  Marketplace Sale: null
+  Marketplace Sale (FBA,FBF, Jio): null
+  Alpha Sale: null
+  TE Sale: null
+  Marico MT (Primary): null
+  HOM Sale: null

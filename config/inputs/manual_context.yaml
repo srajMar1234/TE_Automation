@@ -1,0 +1,11 @@
+# Optional server-side defaults for manual additions of excluded chains.
+# Business users should typically enter these values in the UI at runtime.
+excluded_group_status_values:
+  - chain: Amazon
+    group: Offline Sale
+    Quotation Approved: null
+    Quotation Pending: null
+    Ready To Ship: null
+    Shipped: null
+    Returned: null
+    Expired: null

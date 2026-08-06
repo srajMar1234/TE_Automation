@@ -1,0 +1,49 @@
+base_url: "https://healoman.com/admin/"
+reports_url: "https://healoman.com/admin/index.php?route=report/report"
+
+base_filters:
+  date_status: "Date Added"
+  date_start: "1st of Month"
+  date_end: "As on Date"
+  customer_group: ""
+  order_status: ""
+
+reports:
+  - name: "AllOrders_Report_1"
+    output_name: "Expired Report"
+    filters:
+      date_status: "Date Added"
+      date_start: "1st of Month"
+      date_end: "As on Date"
+      customer_group: ""
+      order_status: "Expired"
+  - name: "AllOrders_Report_2"
+    output_name: "Returned Report"
+    filters:
+      date_status: "Date Added"
+      date_start: "1st of Month"
+      date_end: "As on Date"
+      customer_group: ""
+      order_status: "Returned"
+  - name: "AllOrders_Report_3"
+    output_name: "Shipped Report"
+    filters:
+      date_status: "Date Shipped"
+      date_start: "1st of Month"
+      date_end: "As on Date"
+      customer_group: ""
+      order_status:
+        - "Shipped"
+        - "Complete"
+  - name: "AllOrders_Report_4"
+    output_name: "QPQA Report"
+    filters:
+      date_status: "Date Added"
+      date_start: "1st of Previous Month"
+      date_end: "As on Date"
+      customer_group: ""
+      order_status:
+        - "Quotation Approved"
+        - "Quotation Pending"
+        # Must match <option> text in admin (often "Ready To Ship", not "Ready to Ship")
+        - "Ready To Ship"

@@ -1,0 +1,15 @@
+# Display labels for the six manual fields in the web app (operators type values only).
+# Deploy this file with the app; business users do not edit YAML.
+manual_fields:
+  - id: field_1
+    label: "Field 1"
+  - id: field_2
+    label: "Field 2"
+  - id: field_3
+    label: "Field 3"
+  - id: field_4
+    label: "Field 4"
+  - id: field_5
+    label: "Field 5"
+  - id: field_6
+    label: "Field 6"

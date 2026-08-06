@@ -1,0 +1,11 @@
+# Daily overrides (optional). Merge with static exclusions in config/summary_rules.yaml.
+additional_excluded_customer_groups:
+  - Amazon
+  - Free Sample
+  - Internal
+  - Flipkart FA
+  - True Elements
+  - Jio Exclude
+  - Jiomart Marketplace
+# Optional: your count of excluded customer groups (validated against rows seen in source data).
+excluded_customer_groups_reported_total: null

@@ -1,0 +1,42 @@
+# Customer groups removed before any aggregation (exact match after trim; case-insensitive).
+excluded_customer_groups:
+  - Amazon
+  - Free Sample
+  - Internal
+  - Flipkart FA
+  - True Elements
+
+# If customer group text contains any of these substrings (case-insensitive), exclude the row.
+# Covers Jio, Jiomart, Jio Marketplace, etc.
+excluded_customer_group_substrings:
+  - jio
+  - jiomart
+
+# If Customer Name matches (normalized: trim + collapse spaces + case-insensitive), replace Customer Group.
+customer_name_overrides:
+  - customer_name: EXCESS INNOVATIONS PRIVATE LIMITED
+    customer_group: HOM Sale
+  - customer_name: Marico Limited (Ahmedabad)
+    customer_group: Internal
+
+# Order status -> sum which amount column
+# "total_incl_tax" uses column Total Incl Tax; "total_excl_tax" uses Total Excl Tax (Expired only).
+order_status_columns:
+  Quotation Approved: total_incl_tax
+  Quotation Pending: total_incl_tax
+  Ready To Ship: total_incl_tax
+  Shipped: total_incl_tax
+  Returned: total_incl_tax
+  Expired: total_excl_tax
+
+# Aliases in raw data -> canonical status keys above (lowercase keys).
+order_status_aliases:
+  quotation approved: Quotation Approved
+  quotation pending: Quotation Pending
+  ready to ship: Ready To Ship
+  readytoship: Ready To Ship
+  shipped: Shipped
+  complete: Shipped
+  completed: Shipped
+  returned: Returned
+  expired: Expired

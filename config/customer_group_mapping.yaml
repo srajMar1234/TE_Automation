@@ -1,0 +1,43 @@
+# Customer Group (as in export) -> reporting Group
+mapping:
+  Alpha - FK: Alpha Sale
+  ARIPL Fresh: Online Sale
+  ARIPL New: Online Sale
+  ARIPL Now: Online Sale
+  Bigbasket: Online Sale
+  Blinkit: Online Sale
+  Cred: Marketplace Sale
+  Distributor 32.5%: Offline Sale
+  Distributor 35%: Offline Sale
+  Dmart: Online Sale
+  Flipkart Hyperlocal: Online Sale
+  HORECA 0%: Offline Sale
+  HW: Online Sale
+  Instamart: Online Sale
+  Jiomart Marketplace: Marketplace Sale (FBA,FBF, Jio)
+  Marico MT: Marico MT (Primary)
+  Meesho: Marketplace Sale
+  Nykaa: Marketplace Sale
+  POPCLUB: Marketplace Sale
+  Retail 30%: Offline Sale
+  Retail 35%: Offline Sale
+  Super Stockist 37.5 %: Offline Sale
+  SurfBoat: Marketplace Sale
+  TE B2B: TE Sale
+  True Elements: TE Sale
+  Zepto: Online Sale
+  Retail 25%: Offline Sale
+  Milk Basket: Online Sale
+  1 MG B2B: Online Sale
+  B2B 0%: Offline Sale
+  B2B - 30%: Offline Sale
+  Amazon: Marketplace Sale (FBA,FBF, Jio)
+  Flipkart: Marketplace Sale (FBA,FBF, Jio)
+  Retail 27%: Offline Sale
+  Reliance Retail: Online Sale
+  HOM Sale: HOM Sale
+  Speciality 40%: Offline Sale
+  Speciality MRP: Offline Sale
+  FirstClub: Online Sale
+  International 0%: Offline Sale
+  ONDC SellerApp: Marketplace Sale

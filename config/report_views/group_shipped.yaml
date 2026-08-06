@@ -1,0 +1,6 @@
+# Example custom view — duplicate/edit files in this folder; disabled: true to skip.
+title: Group Shipped
+source: Group_Summary
+index: [Group]
+values: [Shipped]
+aggfunc: sum

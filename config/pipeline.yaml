@@ -1,0 +1,3 @@
+headless: true
+web_retry_attempts: 3
+retry_delay_seconds: 2
