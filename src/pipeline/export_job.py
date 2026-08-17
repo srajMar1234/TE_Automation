@@ -9,7 +9,7 @@ import yaml
 from dotenv import load_dotenv
 from playwright.sync_api import sync_playwright
 
-from src.web.launch import chromium_launch_kwargs
+from src.web.launch import chromium_launch_kwargs, ensure_playwright_chromium
 from src.web.login import build_authenticated_page
 from src.web.reports import export_report
 
@@ -39,8 +39,10 @@ def export_all_order_reports(
     out_dir = download_dir or (base_dir / "downloads" / "exports")
     out_dir.mkdir(parents=True, exist_ok=True)
 
+    ensure_playwright_chromium()
+
     with sync_playwright() as p:
-        browser = p.chromium.launch(**chromium_launch_kwargs(pipeline_config=pipe))
+        browser = p.chromium.launch(**chromium_launch_kwargs(pipeline_config=pipe, playwright=p))
         context = browser.new_context(accept_downloads=True)
         page = build_authenticated_page(
             context,
