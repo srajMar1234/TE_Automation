@@ -6,7 +6,8 @@ __pycache__/
 .venv-mac/
 .venv-win/
 downloads/
-output/
+# Only root build artifacts — do NOT ignore src/output/ (Python package)
+/output/
 data/
 logs/
 node_modules/
