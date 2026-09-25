@@ -845,10 +845,10 @@ st.caption(
 )
 with st.expander("Calculation rule", expanded=False):
     st.markdown(
-        "**Qualifying movement:** QP/QA at T-1 → RTS/Shipped at T.  "
-        "\n**Gross Amount:** today's inclusive-tax value for the qualifying line.  "
+        "**SB Diff:** Inclusive Tax (T-1) − Inclusive Tax (T) per Order + Product.  "
+        "\n**Gross Amount:** sum of Diff by business group (full conversions at same value contribute 0).  "
         "\n**NR:** Gross Amount × the monthly NR%.  "
-        "\nThe workbook also retains literal T − T-1 quantity and amount differences for audit. "
+        "\nWorkbook sheets: PID wise Cutover, Orderwise cutover, Cutover_Summary. "
         "The first run seeds the T-1 history; subsequent daily runs calculate automatically."
     )
 automatic_cutover = st.session_state.get("automatic_cutover")
@@ -864,9 +864,11 @@ else:
 cutover_result = automatic_cutover.result if automatic_cutover is not None else None
 if cutover_result is not None and not cutover_result.unmapped_groups:
     c1, c2, c3, c4 = st.columns(4)
+    diff_total = float(cutover_result.detail["Total Value Diff"].sum()) if not cutover_result.detail.empty else 0.0
+    nonzero = int((cutover_result.detail["Total Value Diff"].fillna(0) != 0).sum()) if not cutover_result.detail.empty else 0
     c1.metric("T-1 lines checked", f"{len(cutover_result.detail):,}")
-    c2.metric("Qualifying movements", f"{int(cutover_result.detail['Qualifying Transition'].sum()):,}")
-    c3.metric("Cancelled / not found", f"{int((cutover_result.detail['Status T'] == 'Cancelled').sum()):,}")
+    c2.metric("Non-zero Diff lines", f"{nonzero:,}")
+    c3.metric("Total Value Diff", f"{diff_total:,.2f}")
     c4.metric("Excluded source rows", f"{cutover_result.excluded_rows:,}")
     cut_summary_tab, cut_detail_tab = st.tabs(["Cutover Summary", "Detailed Audit"])
     with cut_summary_tab:

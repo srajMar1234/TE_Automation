@@ -1,4 +1,4 @@
-"""Daily cutover: track QP/QA order lines that become RTS or Shipped."""
+"""Daily cutover: SB Diff = Inclusive Tax (T-1) − Inclusive Tax (T) per Order+PID."""
 
 from __future__ import annotations
 
@@ -18,22 +18,31 @@ from openpyxl.styles import Font, PatternFill
 
 PREVIOUS_PIPELINE = {"Quotation Pending", "Quotation Approved"}
 TARGET_STATUSES = {"Ready To Ship", "Shipped"}
+# Prefer shipped when an order appears in File 3 but the PID line itself is gone (SB behavior).
+_STATUS_PRIORITY = {
+    "Shipped": 4,
+    "Ready To Ship": 3,
+    "Quotation Approved": 2,
+    "Quotation Pending": 1,
+    "Cancelled": 0,
+}
 
+# Ordered aliases: first match wins. Prefer Product Id over SKU barcodes.
 COLUMN_ALIASES = {
-    "order_id": {"orderid", "orderno", "ordernumber"},
-    "product_id": {"productid", "productcode", "sku", "skuid"},
-    "product_name": {"productname", "itemname", "sku name", "description"},
-    "customer_name": {"customername", "customer"},
-    "customer_group": {"customergroup", "customergroupoverride", "group"},
-    "order_status": {"orderstatus", "status"},
-    "quantity": {"quantity", "qty", "orderquantity"},
-    "amount": {
+    "order_id": ("orderid", "orderno", "ordernumber"),
+    "product_id": ("productid", "productcode", "skuid", "sku"),
+    "product_name": ("productname", "itemname", "sku name", "description"),
+    "customer_name": ("customername", "customer"),
+    "customer_group": ("customergroup", "customergroupoverride", "group"),
+    "order_status": ("orderstatus", "status"),
+    "quantity": ("quantity", "qty", "orderquantity"),
+    "amount": (
         "totalincltax",
         "totalinclusivetax",
         "salesinclusivetax",
         "salesincltax",
         "amountincltax",
-    },
+    ),
 }
 
 STATUS_ALIASES = {
@@ -46,7 +55,12 @@ STATUS_ALIASES = {
     "shipped": "Shipped",
     "complete": "Shipped",
     "completed": "Shipped",
+    "canceled": "Cancelled",
+    "cancelled": "Cancelled",
 }
+
+# Excel pivot label used when Customer Group is empty on the source report.
+_BLANK_GROUP_LABEL = "(blank)"
 
 
 @dataclass(frozen=True)
@@ -186,7 +200,7 @@ def _column_map(df: pd.DataFrame) -> dict[str, str]:
     normalized = {_key(column): str(column) for column in df.columns}
     found: dict[str, str] = {}
     for canonical, aliases in COLUMN_ALIASES.items():
-        for alias in aliases | {canonical}:
+        for alias in (canonical, *aliases):
             match = normalized.get(_key(alias))
             if match is not None:
                 found[canonical] = match
@@ -199,6 +213,20 @@ def _column_map(df: pd.DataFrame) -> dict[str, str]:
     return found
 
 
+def _as_id_text(value: object) -> str:
+    """Normalize Excel float IDs like 12711.0 to plain text '12711'."""
+    if value is None or (isinstance(value, float) and pd.isna(value)):
+        return ""
+    if isinstance(value, float) and value.is_integer():
+        return str(int(value))
+    text = str(value).strip()
+    if text.endswith(".0") and text[:-2].isdigit():
+        return text[:-2]
+    if text.lower() in {"nan", "none"}:
+        return ""
+    return text
+
+
 def _prepare(df: pd.DataFrame, mapping: dict[str, str], rules: dict) -> tuple[pd.DataFrame, int]:
     columns = _column_map(df)
     out = pd.DataFrame(index=df.index)
@@ -206,7 +234,7 @@ def _prepare(df: pd.DataFrame, mapping: dict[str, str], rules: dict) -> tuple[pd
         source = columns.get(canonical)
         out[canonical] = df[source] if source else ""
     for text_col in ("order_id", "product_id", "product_name", "customer_name", "customer_group", "order_status"):
-        out[text_col] = out[text_col].fillna("").astype(str).str.strip()
+        out[text_col] = out[text_col].map(_as_id_text) if text_col in {"order_id", "product_id"} else out[text_col].fillna("").astype(str).str.strip()
     out["quantity"] = pd.to_numeric(out["quantity"], errors="coerce").fillna(0.0)
     out["amount"] = pd.to_numeric(out["amount"], errors="coerce").fillna(0.0)
     out["order_status"] = out["order_status"].map(lambda x: STATUS_ALIASES.get(_key(x), x))
@@ -219,23 +247,23 @@ def _prepare(df: pd.DataFrame, mapping: dict[str, str], rules: dict) -> tuple[pd
     override_values = out["customer_name"].map(lambda x: overrides.get(_key(x)))
     out.loc[override_values.notna(), "customer_group"] = override_values[override_values.notna()]
 
-    # Match the established report-summary pipeline: rows without a usable
-    # Customer Group cannot be mapped or aggregated and are removed.
-    blank_group = out["customer_group"].map(_key) == ""
-    blank_group_count = int(blank_group.sum())
-    out = out.loc[~blank_group].copy()
+    # Keep empty Customer Group lines as (blank). Dropping them omitted cancelled
+    # QP/QA orders whose group was never populated on the source report.
+    blank_group = out["customer_group"].map(_key).isin({"", "blank"})
+    out.loc[blank_group, "customer_group"] = _BLANK_GROUP_LABEL
 
     exact = {_key(x) for x in rules.get("excluded_customer_groups", [])}
     substrings = [_key(x) for x in rules.get("excluded_customer_group_substrings", []) if _key(x)]
     group_keys = out["customer_group"].map(_key)
     excluded = group_keys.isin(exact) | group_keys.map(lambda x: any(part in x for part in substrings))
-    excluded_count = blank_group_count + int(excluded.sum())
+    excluded_count = int(excluded.sum())
     out = out.loc[~excluded].copy()
 
     mapping_normalized = {_key(k): str(v).strip() for k, v in mapping.items()}
     out["business_group"] = out["customer_group"].map(lambda x: mapping_normalized.get(_key(x), ""))
     # The override already contains the canonical reporting group.
     out.loc[out["customer_group"].map(_key) == _key("HOM Sale"), "business_group"] = "HOM Sale"
+    out.loc[out["customer_group"].map(_key) == _key(_BLANK_GROUP_LABEL), "business_group"] = _BLANK_GROUP_LABEL
     out["line_key"] = out["order_id"].map(_key) + "|" + out["product_id"].map(_key)
     out = out[(out["order_id"] != "") & (out["product_id"] != "")]
     return out, excluded_count
@@ -251,6 +279,12 @@ def _rollup_lines(df: pd.DataFrame) -> pd.DataFrame:
     return df.groupby(stable, as_index=False, dropna=False).agg(aggregations)
 
 
+def _prefer_status(statuses: list[str]) -> str:
+    if not statuses:
+        return "Cancelled"
+    return max(statuses, key=lambda s: _STATUS_PRIORITY.get(s, -1))
+
+
 def build_cutover(
     previous_df: pd.DataFrame,
     today_pipeline_df: pd.DataFrame,
@@ -260,6 +294,7 @@ def build_cutover(
     rules_path: Path,
     nr_percent: dict[str, float],
 ) -> CutoverResult:
+    """Build cutover using SB Diff: Inclusive Tax (T-1) − Inclusive Tax (T)."""
     with mapping_path.open("r", encoding="utf-8") as handle:
         mapping = (yaml.safe_load(handle) or {}).get("mapping", {})
     with rules_path.open("r", encoding="utf-8") as handle:
@@ -274,16 +309,29 @@ def build_cutover(
 
     # Shipped wins if a line appears in both current files.
     current = pd.concat([shipped, pipeline[~pipeline["line_key"].isin(set(shipped["line_key"]))]], ignore_index=True)
-    current = current.set_index("line_key", drop=False)
+    current_by_key = current.set_index("line_key", drop=False)
+    order_status_today: dict[str, str] = {}
+    for order_id, group in current.groupby("order_id", sort=False):
+        order_status_today[str(order_id)] = _prefer_status(list(group["order_status"].astype(str)))
 
     rows: list[dict[str, object]] = []
     for _, old in previous.iterrows():
-        new = current.loc[old["line_key"]] if old["line_key"] in current.index else None
+        new = current_by_key.loc[old["line_key"]] if old["line_key"] in current_by_key.index else None
         if isinstance(new, pd.DataFrame):
             new = new.iloc[0]
-        status_t = str(new["order_status"]) if new is not None else "Cancelled"
-        qty_t = float(new["quantity"]) if new is not None else 0.0
-        amount_t = float(new["amount"]) if new is not None else 0.0
+        if new is not None:
+            status_t = str(new["order_status"])
+            qty_t = float(new["quantity"])
+            amount_t = float(new["amount"])
+        else:
+            # PID missing today: amount/qty are 0. If the order shipped, label status Shipped (SB).
+            qty_t = 0.0
+            amount_t = 0.0
+            status_t = order_status_today.get(str(old["order_id"]), "Cancelled")
+        amt_t1 = float(old["amount"])
+        qty_t1 = float(old["quantity"])
+        value_diff = amt_t1 - amount_t  # SB: T-1 − T
+        qty_diff = qty_t1 - qty_t
         transitioned = old["order_status"] in PREVIOUS_PIPELINE and status_t in TARGET_STATUSES
         rows.append(
             {
@@ -294,34 +342,44 @@ def build_cutover(
                 "Customer Group": old["customer_group"],
                 "Business Group": old["business_group"],
                 "Status T-1": old["order_status"],
-                "Quantity T-1": float(old["quantity"]),
-                "Inclusive Tax T-1": float(old["amount"]),
+                "Quantity T-1": qty_t1,
+                "Inclusive Tax T-1": amt_t1,
                 "Status T": status_t,
                 "Quantity T": qty_t,
                 "Inclusive Tax T": amount_t,
-                "Cutover Diff Quantity (T - T-1)": qty_t - float(old["quantity"]),
-                "Cutover Diff Inclusive Tax (T - T-1)": amount_t - float(old["amount"]),
+                "Qty Diff": qty_diff,
+                "Total Value Diff": value_diff,
                 "Qualifying Transition": transitioned,
-                # A status movement often has the same amount on both days, making arithmetic delta zero.
-                # Gross cutover is therefore today's value for a genuine QP/QA -> RTS/Shipped transition.
-                "Cutover Gross Amount": amount_t if transitioned else 0.0,
+                # Cutover amount is SB Diff (pipeline value reduction), not full converted gross.
+                "Cutover Gross Amount": value_diff,
+                "Unique ID": f"{old['order_id']}{old['product_id']}{old['order_status']}",
                 "Unique Key": old["line_key"],
             }
         )
     detail = pd.DataFrame(rows)
-    unmapped = tuple(sorted(detail.loc[detail["Business Group"] == "", "Customer Group"].dropna().unique(), key=str.casefold))
+    unmapped = tuple(
+        sorted(
+            (
+                group
+                for group in detail.loc[detail["Business Group"] == "", "Customer Group"].dropna().unique()
+                if _key(group) not in {"", "blank"}
+            ),
+            key=str.casefold,
+        )
+    )
     if unmapped:
         return CutoverResult(detail, pd.DataFrame(), unmapped, ex1 + ex2 + ex3)
 
-    qualifying = detail[detail["Qualifying Transition"]].copy()
-    if qualifying.empty:
+    # SB headline cutover = sum of Diff across all T-1 pipeline lines (zeros cancel out).
+    if detail.empty:
         summary = pd.DataFrame(columns=["Business Group", "Gross Amount", "NR %", "NR"])
     else:
-        summary = qualifying.groupby("Business Group", as_index=False)["Cutover Gross Amount"].sum()
-        summary = summary.rename(columns={"Cutover Gross Amount": "Gross Amount"})
+        summary = detail.groupby("Business Group", as_index=False)["Total Value Diff"].sum()
+        summary = summary.rename(columns={"Total Value Diff": "Gross Amount"})
         nr_keys = {_key(k): float(v) for k, v in nr_percent.items()}
         summary["NR %"] = summary["Business Group"].map(lambda x: nr_keys.get(_key(x), 0.0))
         summary["NR"] = summary["Gross Amount"] * summary["NR %"] / 100.0
+        summary = summary.sort_values("Business Group", kind="stable").reset_index(drop=True)
         total = pd.DataFrame([{
             "Business Group": "Total",
             "Gross Amount": summary["Gross Amount"].sum(),
@@ -332,17 +390,75 @@ def build_cutover(
     return CutoverResult(detail, summary, (), ex1 + ex2 + ex3)
 
 
+def _orderwise_from_detail(detail: pd.DataFrame) -> pd.DataFrame:
+    if detail.empty:
+        return pd.DataFrame(
+            columns=[
+                "Order ID",
+                "Customer Group",
+                "Status T-1",
+                "Inclusive Tax T-1",
+                "Business Group",
+                "Status T",
+                "Inclusive Tax T",
+                "Diff",
+            ]
+        )
+
+    def first_non_empty(series: pd.Series) -> object:
+        for value in series:
+            if str(value).strip():
+                return value
+        return series.iloc[0] if len(series) else ""
+
+    grouped = detail.groupby("Order ID", as_index=False).agg(
+        {
+            "Customer Group": first_non_empty,
+            "Status T-1": first_non_empty,
+            "Inclusive Tax T-1": "sum",
+            "Business Group": first_non_empty,
+            "Status T": lambda s: _prefer_status(list(s.astype(str))),
+            "Inclusive Tax T": "sum",
+            "Total Value Diff": "sum",
+        }
+    )
+    return grouped.rename(columns={"Total Value Diff": "Diff"})
+
+
 def cutover_workbook_bytes(result: CutoverResult) -> bytes:
     output = io.BytesIO()
+    orderwise = _orderwise_from_detail(result.detail)
+    nonzero = int((result.detail["Total Value Diff"].fillna(0) != 0).sum()) if not result.detail.empty else 0
     audit = pd.DataFrame([
         {"Check": "Source rows excluded", "Value": result.excluded_rows},
         {"Check": "T-1 lines evaluated", "Value": len(result.detail)},
-        {"Check": "Qualifying QP/QA to RTS/Shipped", "Value": int(result.detail["Qualifying Transition"].sum())},
-        {"Check": "Cancelled/not found today", "Value": int((result.detail["Status T"] == "Cancelled").sum())},
+        {"Check": "Non-zero Diff lines", "Value": nonzero},
+        {"Check": "Total Value Diff (SB cutover)", "Value": float(result.detail["Total Value Diff"].sum()) if not result.detail.empty else 0.0},
+        {"Check": "QP/QA to RTS/Shipped (status only)", "Value": int(result.detail["Qualifying Transition"].sum()) if not result.detail.empty else 0},
+        {"Check": "Cancelled/not found today", "Value": int((result.detail["Status T"] == "Cancelled").sum()) if not result.detail.empty else 0},
     ])
+    pid_cols = [
+        "Order ID",
+        "Customer Group",
+        "Customer Name",
+        "Product ID",
+        "Status T-1",
+        "Quantity T-1",
+        "Inclusive Tax T-1",
+        "Unique ID",
+        "Business Group",
+        "Status T",
+        "Quantity T",
+        "Inclusive Tax T",
+        "Qty Diff",
+        "Total Value Diff",
+    ]
+    pid_sheet = result.detail.reindex(columns=pid_cols) if not result.detail.empty else pd.DataFrame(columns=pid_cols)
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
-        result.detail.to_excel(writer, sheet_name="Cutover_Detail", index=False)
+        pid_sheet.to_excel(writer, sheet_name="PID wise Cutover", index=False)
+        orderwise.to_excel(writer, sheet_name="Orderwise cutover", index=False)
         result.summary.to_excel(writer, sheet_name="Cutover_Summary", index=False)
+        result.detail.to_excel(writer, sheet_name="Cutover_Detail", index=False)
         audit.to_excel(writer, sheet_name="Audit", index=False)
         for sheet in writer.book.worksheets:
             for cell in sheet[1]:

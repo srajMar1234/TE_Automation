@@ -18,7 +18,9 @@ mapping:
   Marico MT: Marico MT (Primary)
   Meesho: Marketplace Sale
   Nykaa: Marketplace Sale
+  Nykaa Inventory Model: Marketplace Sale
   POPCLUB: Marketplace Sale
+  PopClub B2B: Marketplace Sale
   Retail 30%: Offline Sale
   Retail 35%: Offline Sale
   Super Stockist 37.5 %: Offline Sale
@@ -40,4 +42,5 @@ mapping:
   Speciality MRP: Offline Sale
   FirstClub: Online Sale
   International 0%: Offline Sale
+  Export: Offline Sale
   ONDC SellerApp: Marketplace Sale

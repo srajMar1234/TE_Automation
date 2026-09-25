@@ -4,8 +4,12 @@ __pycache__/
 .pytest_cache/
 .venv/
 .venv-mac/
+.venv-win/
 downloads/
 output/
 data/
+logs/
+node_modules/
+.pm2/
 *.xlsx
 *.zip

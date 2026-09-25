@@ -1,0 +1,15 @@
+{
+  "name": "te-automation",
+  "private": true,
+  "description": "TE Report Studio — use PM2 (see ecosystem.config.cjs and DEPLOY_WINDOWS.md)",
+  "scripts": {
+    "pm2:start": "pm2 start ecosystem.config.cjs",
+    "pm2:stop": "pm2 stop te-report-studio",
+    "pm2:restart": "pm2 restart te-report-studio",
+    "pm2:logs": "pm2 logs te-report-studio",
+    "pm2:status": "pm2 status"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

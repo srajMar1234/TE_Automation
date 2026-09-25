@@ -28,10 +28,15 @@ Phase-1 pipeline automates:
 
 ## Run
 
-- Full pipeline: `python main.py`
-- Web exports only (no mail): `python web_smoke_test.py`
+- **Report Studio (recommended):** `streamlit run app/studio.py` → http://localhost:8501  
+  Step 0 exports reports, runs cutover, and builds `combined_reports.xlsx`.
+- Web exports only (CLI): `python main.py` or `python tools/export_reports.py`
+- Merge ZIPs → combined workbook: `python tools/merge_reports.py`
+- Product workbook from combined: `python tools/build_product.py path/to/combined_reports.xlsx`
 
-Output workbook is created in `output/<run_id>/`.
+## Windows VM + PM2
+
+See **[DEPLOY_WINDOWS.md](DEPLOY_WINDOWS.md)** for private VM install, PM2 process management, and auto-start after reboot.
 
 ## Mail Providers
 
